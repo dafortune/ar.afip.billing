@@ -1,0 +1,36 @@
+{
+  "name": "@fortune/ar.afip.billing",
+  "version": "0.0.0",
+  "description": "Client for wsmtxca AFIP web service",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha lib/**/*.test.js",
+    "format": "prettier -w './**/*.js'"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dayjs": "^1.10.4",
+    "node-forge": "^0.10.0",
+    "soap": "^0.36.0",
+    "xml2js": "^0.4.23"
+  },
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "mocha": "^8.3.2",
+    "nock": "^13.0.11",
+    "prettier": "2.2.1"
+  },
+  "directories": {
+    "lib": "lib",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dafortune/ar.afip.billing.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dafortune/ar.afip.billing/issues"
+  },
+  "homepage": "https://github.com/dafortune/ar.afip.billing#readme"
+}
