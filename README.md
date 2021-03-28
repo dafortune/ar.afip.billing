@@ -25,7 +25,7 @@ As next step, you have to authorize using `wsmtxca` with your certificate (for t
 ### About the Autorization Cache
 AFIP Authorization service (`WSASS`) usually issues a token that last 24 hours, and, once the token has been issued it refuses to generate other in several hours, because of this we need some way to store the authorization token to reuse it in future.
 
-The Auth token must be stored as a secret, in a safe storage and encrypted; but this library is not opinionated in terms of what strategy you use to store the token. This is why the Auth module allows you to provide and `authCache` implementation.
+The Auth token must be stored as a secret, in a safe storage and encrypted; but this library is not opinionated in terms of what strategy you use to store the token. You can use the Auth module to create the auth information (token and signature) and to validate its validity (that it is not expired). Once generated you must store the token the way you feel convenient and you can also validate it before usage by usign the Auth service, if the token is not valid (e.g. it is expired) you can use the Auth service to request another one.
 
 We provide [UnsafeNonProductiveFileSystemTokenCacheExample](./unsafe_non_productive_file_system_token_cache_example.js) as as reference non-productive implementation. That implementation is not suitable for production (it is not secure and don't allow you to scale horizontally), use only for testing purposes and as a reference; something as Redis or a Database (plus encryption before saving) are potential (not provided) suitable implementations.
 
@@ -37,45 +37,69 @@ const fs = require("fs");
 const afip = require("@fortune/ar.afip.billing");
 const UnsafeNonProductiveFileSystemTokenCacheExample = require('@fortune/ar.afip.billing/unsafe_non_productive_file_system_token_cache_example');
 
-const metaService = new afip.MetaService("test");
-const auth = new afip.Auth({
-    authCache: new UnsafeNonProductiveFileSystemTokenCacheExample(), // DO NOT USE THIS IMPLEMENTATION IN PRODUCTION
-    metaService,
-    CUIT: // Company CUIT, example: 30710316097
-    cert: fs
-        .readFileSync("path/to/your/cert")
-        .toString("utf8"),
-    key: fs
-        .readFileSync("/path/to/your/private/key")
-        .toString("utf8"),
-});
+(async () => {
+  const authCache = new UnsafeNonProductiveFileSystemTokenCacheExample(); // DO NOT USE THIS IMPLEMENTATION IN PRODUCTION
 
-const eb = new afip.Billing({
-    auth,
-    metaService,
-});
+  const env = 'test';
+  const metaService = new afip.MetaService(env);
 
-console.log(await eb.getAlicuotasIVA());
-console.log(await eb.getPuntosDeVenta());
-console.log(await eb.getMonedas());
-console.log(await eb.getCotizacionMoneda((await eb.getMonedas())[1].codigo));
-console.log(await eb.getCondicionesIVA());
-console.log(await eb.getTiposComprobante());
-console.log(await eb.getTiposDocumento());
-console.log(await eb.getTiposTributo());
-console.log(await eb.getUnidadesMedida());
-console.log(await eb.getTiposDatosAdicionales());
-console.log(await eb.getPuntosDeVentaCAE());
-console.log(await eb.getUltimoComprobanteAutorizado({
-    codigoTipoComprobante: 1,
-    numeroPuntoVenta: 1,
-}));
-console.log(await eb.getComprobante({
-    codigoTipoComprobante: 1,
-    numeroPuntoVenta: 1,
-    numeroComprobante: 1,
-}));
-console.log(await eb.autorizarComprobante({
+  const afipAuth = new afip.Auth({
+      metaService,
+      cert: fs
+          .readFileSync("/path/to/cert")
+          .toString("utf8"),
+      key: fs
+          .readFileSync("/path/to/private_key")
+          .toString("utf8"),
+  });
+
+  let auth;
+  const cuit = // ... CUIT
+
+  const cacheKey = `wsmtxca-${cuit}-${env}`;
+
+  if (await authCache.has(cacheKey)) {
+      const ta = await authCache.get(cacheKey);
+      
+      auth = afip.Auth.getServiceTAFromAuthData({
+          sign: ta.sign,
+          token: ta.token,
+          expirationTime: new Date(ta.expirationTime)
+      });
+  }
+
+  if (!auth) {
+      auth = await afipAuth.createAuthData('wsmtxca');
+      await authCache.save(cacheKey, auth);
+  }
+
+  const eb = new afip.Billing({
+      cuit: cuit,
+      auth,
+      metaService,
+  });
+
+  console.log(await eb.getAlicuotasIVA());
+  console.log(await eb.getPuntosDeVenta());
+  console.log(await eb.getMonedas());
+  console.log(await eb.getCotizacionMoneda((await eb.getMonedas())[1].codigo));
+  console.log(await eb.getCondicionesIVA());
+  console.log(await eb.getTiposComprobante());
+  console.log(await eb.getTiposDocumento());
+  console.log(await eb.getTiposTributo());
+  console.log(await eb.getUnidadesMedida());
+  console.log(await eb.getTiposDatosAdicionales());
+  console.log(await eb.getPuntosDeVentaCAE());
+  console.log(await eb.getUltimoComprobanteAutorizado({
+      codigoTipoComprobante: 1,
+      numeroPuntoVenta: 1,
+  }));
+  console.log(await eb.getComprobante({
+      codigoTipoComprobante: 1,
+      numeroPuntoVenta: 1,
+      numeroComprobante: 1,
+  }));
+  console.log(await eb.autorizarComprobante({
     codigoTipoComprobante: 1,
     numeroPuntoVenta: 1,
     numeroComprobante: 6,
@@ -111,4 +135,5 @@ console.log(await eb.autorizarComprobante({
     fechaServicioHasta: new Date(),
     fechaVencimientoPago: new Date(),
   }));
+})().catch(err => console.error('error', err));
 ```
