@@ -8,7 +8,7 @@ This is NOT an official client. Use at your own risk.
 
 ## Installation
 ```
-npm i dafortune/ar.afip.billing
+npm i @fortune/ar.afip.billing
 ```
 
 ## Usage
